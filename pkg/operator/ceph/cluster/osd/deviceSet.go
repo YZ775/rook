@@ -19,6 +19,7 @@ package osd
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -200,7 +201,9 @@ func (c *Cluster) createDeviceSetPVC(existingPVCs map[string]*v1.PersistentVolum
 		pvcID = deviceSetPVCID(deviceSetName, pvcTemplate.GetName(), setIndex)
 		existingPVC = existingPVCs[pvcID]
 	}
-	pvc := makeDeviceSetPVC(deviceSetName, pvcID, setIndex, pvcTemplate, c.clusterInfo.Namespace)
+	re := regexp.MustCompile("[/:]")
+	cephImageVersion := re.ReplaceAllString(c.spec.CephVersion.Image, "_")
+	pvc := makeDeviceSetPVC(deviceSetName, pvcID, setIndex, pvcTemplate, c.clusterInfo.Namespace, cephImageVersion)
 	err := c.clusterInfo.OwnerInfo.SetControllerReference(pvc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set owner reference to osd pvc %q", pvc.Name)
@@ -224,8 +227,8 @@ func (c *Cluster) createDeviceSetPVC(existingPVCs map[string]*v1.PersistentVolum
 	return deployedPVC, nil
 }
 
-func makeDeviceSetPVC(deviceSetName, pvcID string, setIndex int, pvcTemplate v1.PersistentVolumeClaim, namespace string) *v1.PersistentVolumeClaim {
-	pvcLabels := makeStorageClassDeviceSetPVCLabel(deviceSetName, pvcID, setIndex)
+func makeDeviceSetPVC(deviceSetName, pvcID string, setIndex int, pvcTemplate v1.PersistentVolumeClaim, namespace string, cephImageVersion string) *v1.PersistentVolumeClaim {
+	pvcLabels := makeStorageClassDeviceSetPVCLabel(deviceSetName, pvcID, setIndex, cephImageVersion)
 
 	// Add user provided labels to pvcTemplates
 	for k, v := range pvcTemplate.GetLabels() {
