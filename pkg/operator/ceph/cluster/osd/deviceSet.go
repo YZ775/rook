@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // deviceSet is the processed version of the StorageClassDeviceSet
@@ -201,8 +202,15 @@ func (c *Cluster) createDeviceSetPVC(existingPVCs map[string]*v1.PersistentVolum
 		pvcID = deviceSetPVCID(deviceSetName, pvcTemplate.GetName(), setIndex)
 		existingPVC = existingPVCs[pvcID]
 	}
+
+	// regex to replace characters used by image name format that are not allowed in label values
 	re := regexp.MustCompile("[/:]")
 	cephImageVersion := re.ReplaceAllString(c.spec.CephVersion.Image, "_")
+
+	if validation.IsValidLabelValue(c.spec.CephVersion.Image) != nil {
+		logger.Infof("Label Value:%s contains invalid character", c.spec.CephVersion.Image)
+		cephImageVersion = ""
+	}
 	pvc := makeDeviceSetPVC(deviceSetName, pvcID, setIndex, pvcTemplate, c.clusterInfo.Namespace, cephImageVersion)
 	err := c.clusterInfo.OwnerInfo.SetControllerReference(pvc)
 	if err != nil {
