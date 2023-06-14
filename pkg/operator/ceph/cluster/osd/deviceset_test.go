@@ -83,6 +83,14 @@ func testPrepareDeviceSets(t *testing.T, setTemplateName bool) {
 	}
 	assert.Equal(t, fmt.Sprintf("mydata-%s-0", expectedName), pvcs.Items[0].GenerateName)
 	assert.Equal(t, cluster.clusterInfo.Namespace, pvcs.Items[0].Namespace)
+
+	//Verify that the PVC has correct Image Version Label
+	cephImageVersion := createValidCephImageVersionLabel(cluster.spec.CephVersion.Image)
+	for _, item := range pvcs.Items {
+		val, exist := item.Labels[cephImageVersionLabelKey]
+		assert.Equal(t, true, exist)
+		assert.Equal(t, cephImageVersion, val)
+	}
 }
 
 func TestPrepareDeviceSetWithHolesInPVCs(t *testing.T) {
@@ -269,4 +277,11 @@ func TestPrepareDeviceSetsWithCrushParams(t *testing.T) {
 	pvcs, err := clientset.CoreV1().PersistentVolumeClaims(cluster.clusterInfo.Namespace).List(ctx, metav1.ListOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(pvcs.Items))
+}
+
+func TestCreateValidCephImageVersionLabel(t *testing.T) {
+	cephImageVersion := "ceph/ceph:v17.2.6"
+	assert.Equal(t, "ceph_ceph_v17.2.6", createValidCephImageVersionLabel(cephImageVersion))
+	cephImageVersion = ".invalid_label"
+	assert.Equal(t, "", createValidCephImageVersionLabel(cephImageVersion))
 }

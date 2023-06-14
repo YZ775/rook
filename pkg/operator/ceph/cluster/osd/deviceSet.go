@@ -203,15 +203,7 @@ func (c *Cluster) createDeviceSetPVC(existingPVCs map[string]*v1.PersistentVolum
 		existingPVC = existingPVCs[pvcID]
 	}
 
-	// regex to replace characters used by image name format that are not allowed in label values
-	re := regexp.MustCompile("[/:]")
-	cephImageVersion := re.ReplaceAllString(c.spec.CephVersion.Image, "_")
-
-	if validation.IsValidLabelValue(c.spec.CephVersion.Image) != nil {
-		logger.Infof("Label Value:%s contains invalid character", c.spec.CephVersion.Image)
-		cephImageVersion = ""
-	}
-	pvc := makeDeviceSetPVC(deviceSetName, pvcID, setIndex, pvcTemplate, c.clusterInfo.Namespace, cephImageVersion)
+	pvc := makeDeviceSetPVC(deviceSetName, pvcID, setIndex, pvcTemplate, c.clusterInfo.Namespace, createValidCephImageVersionLabel(c.spec.CephVersion.Image))
 	err := c.clusterInfo.OwnerInfo.SetControllerReference(pvc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set owner reference to osd pvc %q", pvc.Name)
@@ -293,4 +285,16 @@ func legacyDeviceSetPVCID(deviceSetName string, setIndex int) string {
 func deviceSetPVCID(deviceSetName, pvcTemplateName string, setIndex int) string {
 	cleanName := strings.Replace(pvcTemplateName, " ", "-", -1)
 	return fmt.Sprintf("%s-%s-%d", deviceSetName, cleanName, setIndex)
+}
+
+func createValidCephImageVersionLabel(image string) string {
+	// regex to replace characters used by image name format that are not allowed in label values
+	re := regexp.MustCompile("[/:]")
+	cephImageVersion := re.ReplaceAllString(image, "_")
+
+	if validation.IsValidLabelValue(cephImageVersion) != nil {
+		logger.Infof("Label Value:%s contains invalid character", image)
+		cephImageVersion = ""
+	}
+	return cephImageVersion
 }
